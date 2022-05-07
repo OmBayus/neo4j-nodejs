@@ -78,6 +78,7 @@ export default class ReviewService {
         r.timestamp = timestamp()
   
       RETURN m {
+        .*,
         rating: r.rating
       } AS movie
     `, { userId, movieId, rating }))

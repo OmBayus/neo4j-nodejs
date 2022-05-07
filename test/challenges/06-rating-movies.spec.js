@@ -39,9 +39,6 @@ describe('06. Rating Movies', () => {
 
         const output = await service.add(userId, movieId, rating)
 
-        console.log(output)
-
-        expect(output.identity).toEqual(movieId)
         expect(output.rating).toEqual(rating)
     })
 
