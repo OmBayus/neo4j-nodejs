@@ -1,24 +1,24 @@
-import { goodfellas, popular } from '../../test/fixtures/movies.js'
-import { roles } from '../../test/fixtures/people.js'
-import { toNativeTypes } from '../utils.js'
-import NotFoundError from '../errors/not-found.error.js'
+import { goodfellas, popular } from "../../test/fixtures/movies.js";
+import { roles } from "../../test/fixtures/people.js";
+import { toNativeTypes } from "../utils.js";
+import NotFoundError from "../errors/not-found.error.js";
 
 // TODO: Import the `int` function from neo4j-driver
-import { int } from 'neo4j-driver'
+import { int } from "neo4j-driver";
 export default class MovieService {
   /**
    * @type {neo4j.Driver}
    */
-  driver
+  driver;
 
   /**
-    * The constructor expects an instance of the Neo4j Driver, which will be
-    * used to interact with Neo4j.
-    *
-    * @param {neo4j.Driver} driver
-    */
+   * The constructor expects an instance of the Neo4j Driver, which will be
+   * used to interact with Neo4j.
+   *
+   * @param {neo4j.Driver} driver
+   */
   constructor(driver) {
-    this.driver = driver
+    this.driver = driver;
   }
 
   /**
@@ -38,26 +38,35 @@ export default class MovieService {
    * @returns {Promise<Record<string, any>[]>}
    */
   // tag::all[]
-  async all(sort = 'title', order = 'ASC', limit = 6, skip = 0, userId = undefined) {
+  async all(
+    sort = "title",
+    order = "ASC",
+    limit = 6,
+    skip = 0,
+    userId = undefined
+  ) {
     // TODO: Open an Session
-    const session = this.driver.session()
+    const session = this.driver.session();
     // TODO: Execute a query in a new Read Transaction
-    const res = await session.readTransaction(tx => tx.run(`
+    const res = await session.readTransaction((tx) =>
+      tx.run(
+        `
       MATCH (m:Movie)
       WHERE m.\`${sort}\` IS NOT NULL
       RETURN m { .* } AS movie
       ORDER BY m.\`${sort}\` ${order}
       SKIP $skip
       LIMIT $limit
-    `, { skip: int(skip), limit: int(limit) }))
+    `,
+        { skip: int(skip), limit: int(limit) }
+      )
+    );
     // TODO: Get a list of Movies from the Result
-    const movies = res.records.map(row => toNativeTypes(row.get('movie')))
+    const movies = res.records.map((row) => toNativeTypes(row.get("movie")));
     // TODO: Close the session
-    await session.close()
+    await session.close();
 
-
-
-    return movies
+    return movies;
   }
   // end::all[]
 
@@ -83,11 +92,18 @@ export default class MovieService {
    * @returns {Promise<Record<string, any>[]>}
    */
   // tag::getByGenre[]
-  async getByGenre(name, sort = 'title', order = 'ASC', limit = 6, skip = 0, userId = undefined) {
+  async getByGenre(
+    name,
+    sort = "title",
+    order = "ASC",
+    limit = 6,
+    skip = 0,
+    userId = undefined
+  ) {
     // TODO: Get Movies in a Genre
     // MATCH (m:Movie)-[:IN_GENRE]->(:Genre {name: $name})
 
-    return popular.slice(skip, skip + limit)
+    return popular.slice(skip, skip + limit);
   }
   // end::getByGenre[]
 
@@ -113,11 +129,18 @@ export default class MovieService {
    * @returns {Promise<Record<string, any>[]>}
    */
   // tag::getForActor[]
-  async getForActor(id, sort = 'title', order = 'ASC', limit = 6, skip = 0, userId = undefined) {
+  async getForActor(
+    id,
+    sort = "title",
+    order = "ASC",
+    limit = 6,
+    skip = 0,
+    userId = undefined
+  ) {
     // TODO: Get Movies acted in by a Person
     // MATCH (:Person {tmdbId: $id})-[:ACTED_IN]->(m:Movie)
 
-    return roles.slice(skip, skip + limit)
+    return roles.slice(skip, skip + limit);
   }
   // end::getForActor[]
 
@@ -143,11 +166,18 @@ export default class MovieService {
    * @returns {Promise<Record<string, any>[]>}
    */
   // tag::getForDirector[]
-  async getForDirector(id, sort = 'title', order = 'ASC', limit = 6, skip = 0, userId = undefined) {
+  async getForDirector(
+    id,
+    sort = "title",
+    order = "ASC",
+    limit = 6,
+    skip = 0,
+    userId = undefined
+  ) {
     // TODO: Get Movies directed by a Person
     // MATCH (:Person {tmdbId: $id})-[:DIRECTED]->(m:Movie)
 
-    return popular.slice(skip, skip + limit)
+    return popular.slice(skip, skip + limit);
   }
   // end::getForDirector[]
 
@@ -169,7 +199,7 @@ export default class MovieService {
     // TODO: Find a movie by its ID
     // MATCH (m:Movie {tmdbId: $id})
 
-    return goodfellas
+    return goodfellas;
   }
   // end::findById[]
 
@@ -197,11 +227,10 @@ export default class MovieService {
   async getSimilarMovies(id, limit = 6, skip = 0, userId = undefined) {
     // TODO: Get similar movies based on genres or ratings
 
-    return popular.slice(skip, skip + limit)
-      .map(item => ({
-        ...item,
-        score: (Math.random() * 100).toFixed(2)
-      }))
+    return popular.slice(skip, skip + limit).map((item) => ({
+      ...item,
+      score: (Math.random() * 100).toFixed(2),
+    }));
   }
   // end::getSimilarMovies[]
 
@@ -216,8 +245,21 @@ export default class MovieService {
    */
   // tag::getUserFavorites[]
   async getUserFavorites(tx, userId) {
-    return []
+    if (userId !== undefined) {
+      const favoriteResult = await tx.run(
+        `
+        MATCH (u:User {userId: $userId})-[:HAS_FAVORITE]->(m)
+        RETURN m.tmdbId AS id
+      `,
+        { userId }
+      );
+
+      // Extract the `id` value returned by the cypher query
+      return favoriteResult.records.map((row) => row.get("id"));
+    }
+
+    // If userId is not defined, return an empty array
+    return [];
   }
   // end::getUserFavorites[]
-
 }
