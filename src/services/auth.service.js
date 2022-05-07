@@ -50,6 +50,25 @@ export default class AuthService {
     // end::constraintError[]
 
     // TODO: Save user
+    const session = this.driver.session()
+
+    const res = await session.writeTransaction(tx =>
+      tx.run(
+        `CREATE (u:User {
+          userId: randomUuid(),
+          email: $email,
+          password: $encrypted,
+          name: $name
+        })
+        RETURN u`,
+        { email, encrypted, name }
+      )
+    )
+
+    const user = res.records[0].get('u')
+
+    await session.close()
+
 
     const { password, ...safeProperties } = user
 
