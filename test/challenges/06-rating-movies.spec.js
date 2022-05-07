@@ -6,7 +6,7 @@ import { closeDriver, getDriver, initDriver } from '../../src/neo4j'
 import RatingService from '../../src/services/rating.service'
 
 describe('06. Rating Movies', () => {
-    const movieId = '769'
+    const movieId = 0
     const userId = '1185150b-9e81-46a2-a1d3-eb649544b9c4'
     const email = 'graphacademy.reviewer@neo4j.com'
     const rating = 5
@@ -39,7 +39,9 @@ describe('06. Rating Movies', () => {
 
         const output = await service.add(userId, movieId, rating)
 
-        expect(output.tmdbId).toEqual(movieId)
+        console.log(output)
+
+        expect(output.identity).toEqual(movieId)
         expect(output.rating).toEqual(rating)
     })
 
