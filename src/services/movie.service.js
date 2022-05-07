@@ -48,19 +48,27 @@ export default class MovieService {
     // TODO: Open an Session
     const session = this.driver.session();
     // TODO: Execute a query in a new Read Transaction
-    const res = await session.readTransaction((tx) =>
-      tx.run(
+    const res = await session.readTransaction(async (tx) => {
+      // Get an array of IDs for the User's favorite movies
+      const favorites = await this.getUserFavorites(tx, userId);
+
+      // Retrieve a list of movies with the
+      // favorite flag appened to the movie's properties
+      return tx.run(
         `
-      MATCH (m:Movie)
-      WHERE m.\`${sort}\` IS NOT NULL
-      RETURN m { .* } AS movie
-      ORDER BY m.\`${sort}\` ${order}
-      SKIP $skip
-      LIMIT $limit
-    `,
-        { skip: int(skip), limit: int(limit) }
-      )
-    );
+        MATCH (m:Movie)
+        WHERE m.\`${sort}\` IS NOT NULL
+        RETURN m {
+          .*,
+          favorite: m.tmdbId IN $favorites
+        } AS movie
+        ORDER BY m.\`${sort}\` ${order}
+        SKIP $skip
+        LIMIT $limit
+      `,
+        { skip: int(skip), limit: int(limit), favorites }
+      );
+    });
     // TODO: Get a list of Movies from the Result
     const movies = res.records.map((row) => toNativeTypes(row.get("movie")));
     // TODO: Close the session
