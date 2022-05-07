@@ -1,14 +1,14 @@
-import jwt from 'jsonwebtoken'
-import { hash, compare } from 'bcrypt'
-import { user } from '../../test/fixtures/users.js'
-import ValidationError from '../errors/validation.error.js'
-import { JWT_SECRET, SALT_ROUNDS } from '../constants.js'
+import jwt from "jsonwebtoken";
+import { hash, compare } from "bcrypt";
+import { user } from "../../test/fixtures/users.js";
+import ValidationError from "../errors/validation.error.js";
+import { JWT_SECRET, SALT_ROUNDS } from "../constants.js";
 
 export default class AuthService {
   /**
    * @type {neo4j.Driver}
    */
-  driver
+  driver;
 
   /**
    * The constructor expects an instance of the Neo4j Driver, which will be
@@ -18,7 +18,7 @@ export default class AuthService {
    */
   // tag::constructor[]
   constructor(driver) {
-    this.driver = driver
+    this.driver = driver;
   }
   // tag::constructor[]
 
@@ -38,17 +38,17 @@ export default class AuthService {
    */
   // tag::register[]
   async register(email, plainPassword, name) {
-    const encrypted = await hash(plainPassword, parseInt(SALT_ROUNDS))
+    const encrypted = await hash(plainPassword, parseInt(SALT_ROUNDS));
 
     // tag::constraintError[]
     // TODO: Handle Unique constraints in the database
     // end::constraintError[]
 
     // TODO: Save user
-    const session = this.driver.session()
+    const session = this.driver.session();
 
     try {
-      const res = await session.writeTransaction(tx =>
+      const res = await session.writeTransaction((tx) =>
         tx.run(
           `CREATE (u:User {
             userId: randomUuid(),
@@ -59,31 +59,31 @@ export default class AuthService {
           RETURN u`,
           { email, encrypted, name }
         )
-      )
-  
-      const user = res.records[0].get('u')
-  
-      await session.close()
-  
-  
-      const { password, ...safeProperties } = user
-  
+      );
+
+      const user = res.records[0].get("u");
+
+      await session.close();
+
+      const { password, ...safeProperties } = user;
+
       return {
         ...safeProperties,
         token: jwt.sign(this.userToClaims(safeProperties), JWT_SECRET),
-      }
-    } 
-    catch (e) {
-      if (e.code === 'Neo.ClientError.Schema.ConstraintValidationFailed') {
-        throw new ValidationError(`An account already exists with the email address ${email}`, {
-          email: 'Email address taken'
-        })
+      };
+    } catch (e) {
+      if (e.code === "Neo.ClientError.Schema.ConstraintValidationFailed") {
+        throw new ValidationError(
+          `An account already exists with the email address ${email}`,
+          {
+            email: "Email address taken",
+          }
+        );
       }
 
-      throw e
-    }
-    finally{
-      await session.close()
+      throw e;
+    } finally {
+      await session.close();
     }
   }
   // end::register[]
@@ -111,19 +111,39 @@ export default class AuthService {
   // tag::authenticate[]
   async authenticate(email, unencryptedPassword) {
     // TODO: Authenticate the user from the database
-    if (email === 'graphacademy@neo4j.com' && unencryptedPassword === 'letmein') {
-      const { password, ...claims } = user.properties
+    const session = this.driver.session();
 
-      return {
-        ...claims,
-        token: jwt.sign(claims, JWT_SECRET)
-      }
+    const res = await session.readTransaction((tx) =>
+      tx.run("MATCH (u:User {email: $email}) RETURN u", { email })
+    );
+
+    // Close the session
+    await session.close();
+
+    // User not found, return false
+    if (res.records.length === 0) {
+      return false;
     }
 
-    return false
+    // Check password
+    const user = res.records[0].get("u");
+    const encryptedPassword = user.properties.password;
+
+    const correct = await compare(unencryptedPassword, encryptedPassword);
+
+    if (correct === false) {
+      return false;
+    }
+
+    // Extract the claims for the JWT
+    const { password, ...safeProperties } = user.properties;
+
+    return {
+      ...safeProperties,
+      token: jwt.sign(this.userToClaims(safeProperties), JWT_SECRET),
+    };
   }
   // end::authenticate[]
-
 
   /**
    * @private
@@ -134,9 +154,9 @@ export default class AuthService {
    * @returns {Record<string, any>} Claims for the token
    */
   userToClaims(user) {
-    const { name, userId } = user
+    const { name, userId } = user;
 
-    return { sub: userId, userId, name, }
+    return { sub: userId, userId, name };
   }
 
   /**
@@ -151,6 +171,6 @@ export default class AuthService {
     return {
       ...claims,
       userId: claims.sub,
-    }
+    };
   }
 }
